@@ -1,12 +1,11 @@
-package main
+package repl
 
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-
 	"github.com/MagnusTrier/pokedexcli/internal/pokeapi"
 	"github.com/MagnusTrier/pokedexcli/internal/pokecache"
+	"os"
 )
 
 type config struct {
@@ -18,7 +17,7 @@ type config struct {
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(*config) error
+	callback    func(*config, []string) error
 }
 
 func getCliCommands() map[string]cliCommand {
@@ -43,16 +42,21 @@ func getCliCommands() map[string]cliCommand {
 			description: "Displays the previous 20 locations",
 			callback:    commandMapB,
 		},
+		"explore": {
+			name:        "explore",
+			description: "Takes the name of a location area as an argument and returns a list of all the Pokemon located there",
+			callback:    commandExplore,
+		},
 	}
 }
 
-func commandExit(cfg *config) error {
+func commandExit(cfg *config, _ []string) error {
 	fmt.Printf("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp(cfg *config) error {
+func commandHelp(cfg *config, _ []string) error {
 	fmt.Printf("Welcome to the Pokedex!\nUsage:\n\n")
 	commands := getCliCommands()
 	for _, val := range commands {
@@ -61,7 +65,7 @@ func commandHelp(cfg *config) error {
 	return nil
 }
 
-func commandMap(cfg *config) error {
+func commandMap(cfg *config, _ []string) error {
 	var path string
 	if cfg.next == "" {
 		path = "https://pokeapi.co/api/v2/location-area?offset=0&limit=20"
@@ -72,7 +76,7 @@ func commandMap(cfg *config) error {
 	return err
 }
 
-func commandMapB(cfg *config) error {
+func commandMapB(cfg *config, _ []string) error {
 	if cfg.previous == "" {
 		fmt.Printf("you're on the first page")
 		return nil
@@ -90,7 +94,6 @@ func getMap(cfg *config, path string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("using cached value!\n")
 	} else {
 		var err error
 		data, err = pokeapi.FetchLocationAreas(path)
@@ -109,11 +112,57 @@ func getMap(cfg *config, path string) error {
 	cfg.previous = data.Previous
 
 	for i, item := range data.Results {
-		fmt.Printf("%v", item.Name)
+		fmt.Printf(" - %v", item.Name)
 		if i < len(data.Results)-1 {
 			fmt.Printf("\n")
 		}
 	}
 
 	return nil
+}
+
+func commandExplore(cfg *config, arguments []string) error {
+	if len(arguments) == 0 {
+		return fmt.Errorf("recieved no location-area")
+	}
+
+	name := arguments[0]
+	path := "https://pokeapi.co/api/v2/location-area/" + name
+
+	var data pokeapi.ExplorePage
+
+	if val, ok := cfg.cache.Get(path); ok {
+		err := json.Unmarshal(val, &data)
+		if err != nil {
+			return err
+		}
+	} else {
+		var err error
+		data, err = pokeapi.FetchExplore(path)
+		if err != nil {
+			return err
+		}
+
+		res, err := json.Marshal(data)
+		if err != nil {
+			return err
+		}
+		cfg.cache.Add(path, res)
+	}
+
+	if len(data.PokemonEncounters) > 0 {
+		fmt.Printf("Exploring %v...\nFound Pokemon:\n", name)
+	} else {
+		fmt.Printf("No Pokemons found in %v\n", name)
+	}
+
+	for i, item := range data.PokemonEncounters {
+		fmt.Printf(" - %v", item.Pokemon.Name)
+		if i < len(data.PokemonEncounters)-1 {
+			fmt.Printf("\n")
+		}
+	}
+
+	return nil
+
 }
