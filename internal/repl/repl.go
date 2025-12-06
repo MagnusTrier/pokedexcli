@@ -3,16 +3,19 @@ package repl
 import (
 	"bufio"
 	"fmt"
-	"github.com/MagnusTrier/pokedexcli/internal/pokecache"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/MagnusTrier/pokedexcli/internal/pokeapi"
+	"github.com/MagnusTrier/pokedexcli/internal/pokecache"
 )
 
 func Repl() {
 	cache := pokecache.NewCache(time.Second * 60)
 	cfg := &config{
-		cache: &cache,
+		cache:   &cache,
+		pokedex: map[string]pokeapi.Pokemon{},
 	}
 
 	cliCommands := getCliCommands()
