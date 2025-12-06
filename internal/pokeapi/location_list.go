@@ -19,7 +19,7 @@ type LocationAreaResult struct {
 }
 
 func FetchLocationAreas(url string) (LocationAreaPage, error) {
-	path := "https://pokeapi.co/api/v2/location-area"
+	path := "https://pokeapi.co/api/v2/location-area?offset=0&limit=20"
 
 	if url != "" {
 		path = url

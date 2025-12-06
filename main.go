@@ -3,11 +3,16 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/MagnusTrier/pokedexcli/internal/pokecache"
 	"os"
+	"time"
 )
 
 func main() {
-	cfg := &config{}
+	cache := pokecache.NewCache(time.Second * 60)
+	cfg := &config{
+		cache: &cache,
+	}
 
 	cliCommands := getCliCommands()
 

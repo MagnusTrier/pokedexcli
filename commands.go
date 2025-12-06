@@ -1,14 +1,18 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/MagnusTrier/pokedexcli/internal/pokeapi"
 	"os"
+
+	"github.com/MagnusTrier/pokedexcli/internal/pokeapi"
+	"github.com/MagnusTrier/pokedexcli/internal/pokecache"
 )
 
 type config struct {
 	next     string
 	previous string
+	cache    *pokecache.Cache
 }
 
 type cliCommand struct {
@@ -58,7 +62,13 @@ func commandHelp(cfg *config) error {
 }
 
 func commandMap(cfg *config) error {
-	err := getMap(cfg, cfg.next)
+	var path string
+	if cfg.next == "" {
+		path = "https://pokeapi.co/api/v2/location-area?offset=0&limit=20"
+	} else {
+		path = cfg.next
+	}
+	err := getMap(cfg, path)
 	return err
 }
 
@@ -73,9 +83,26 @@ func commandMapB(cfg *config) error {
 
 func getMap(cfg *config, path string) error {
 
-	data, err := pokeapi.FetchLocationAreas(path)
-	if err != nil {
-		return err
+	var data pokeapi.LocationAreaPage
+
+	if val, ok := cfg.cache.Get(path); ok {
+		err := json.Unmarshal(val, &data)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("using cached value!\n")
+	} else {
+		var err error
+		data, err = pokeapi.FetchLocationAreas(path)
+		if err != nil {
+			return err
+		}
+
+		res, err := json.Marshal(data)
+		if err != nil {
+			return err
+		}
+		cfg.cache.Add(path, res)
 	}
 
 	cfg.next = data.Next
